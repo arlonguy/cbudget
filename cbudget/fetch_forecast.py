@@ -3,34 +3,10 @@ from pathlib import Path
 
 import click
 import requests
-import yaml
-from requests.auth import HTTPBasicAuth
-
-def load_watttime_credentials():
-    """
-    Load WattTime username & password from configs/infra-budget.yml
-    """
-    config_path = Path(__file__).parent.parent / "configs" / "infra-budget.yml"
-    cfg = yaml.safe_load(open(config_path))
-    wt_cfg = cfg["watttime"]
-    return wt_cfg["username"], wt_cfg["password"]
-
-def get_watttime_token(username: str, password: str) -> str:
-    """
-    Log into WattTime and return an access token.
-    """
-    login_url = "https://api.watttime.org/login"
-    resp = requests.get(login_url, auth=HTTPBasicAuth(username, password), timeout=10)
-    resp.raise_for_status()
-    token = resp.json().get("token")
-    if not token:
-        click.echo("Failed to retrieve WattTime token", err=True)
-        raise click.Abort()
-    return token
 
 def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
     """
-    Fetch CO2 intensity forecast data from WattTime API.
+    Fetch CO₂ intensity forecast data from the WattTime API.
     Returns the raw JSON response.
     """
     FORECAST_URL = "https://api.watttime.org/v3/forecast"
@@ -49,38 +25,47 @@ def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
         click.echo("Falling back to static placeholder data", err=True)
         return {}
 
-def save_transformed_json(data: dict, filename: str, region: str) -> Path:
+def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
     """
-    Transform WattTime response to {region, data:[{timestamp, value}]} in g/kWh,
-    and write to filename. Returns the Path written.
+    Transform raw WattTime data for Carbonifer:
+      - Converts from lbs/MWh to g/kWh.
+      - Wraps points as {"timestamp": ..., "value": ...}.
+    Writes result to output_path and returns it.
     """
     points = data.get("data", [])
-    # conversion lbs/MWh → g/kWh: lbs/MWh * 0.453592 (kg/lb) * 1000 (g/kg) / 1000 (kWh/MWh) = 0.453592
-    conversion_factor = 0.453592
+    conversion_factor = 0.453592  # lbs/MWh → g/kWh
 
     transformed = []
     for point in points:
-        timestamp = point["point_time"].replace("+00:00", "Z")
-        value = round(point["value"] * conversion_factor, 2)
-        transformed.append({"timestamp": timestamp, "value": value})
+        ts = point["point_time"].replace("+00:00", "Z")
+        val_g_per_kwh = round(point["value"] * conversion_factor, 2)
+        transformed.append({"timestamp": ts, "value": val_g_per_kwh})
 
     output = {"region": region, "data": transformed}
-    path = Path(filename)
-    path.write_text(json.dumps(output, ensure_ascii=False, indent=4), encoding="utf-8")
-    click.echo(f"Forecast saved to {path}")
-    return path
+    output_path.write_text(json.dumps(output, ensure_ascii=False, indent=4), encoding="utf-8")
+    click.echo(f"Forecast saved to {output_path}")
+    return output_path
 
-def fetch_forecast(region: str = "CAISO_NORTH",
+def fetch_forecast(api_token: str,
+                   region: str = "CAISO_NORTH",
                    hours: int = 72,
                    filename: str = "forecast.json") -> Path:
     """
-    High-level: loads creds, gets token, fetches raw forecast,
-    transforms & saves JSON for Carbonifer.
+    High-level wrapper:
+      1) fetch raw forecast via fetch_forecast_data()
+      2) transform & save via save_transformed_json()
+    Returns the Path to the saved JSON.
     """
-    username, password = load_watttime_credentials()
-    token = get_watttime_token(username, password)
-    raw = fetch_forecast_data(token, region, hours)
-    return save_transformed_json(raw, filename, "us-west2")
+    raw = fetch_forecast_data(api_token, region, hours)
 
+    # Locate the package's configs directory
+    module_dir = Path(__file__).resolve().parent
+    configs_dir = module_dir / "configs"
+    configs_dir.mkdir(parents=True, exist_ok=True)
 
+    # Construct the full path under configs/
+    output_path = configs_dir / filename
+
+    # Save transformed JSON
+    return save_transformed_json(raw, output_path, "us-west2")
 
