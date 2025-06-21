@@ -56,7 +56,7 @@ def run(config: Path):
         api_token=token,
         region=region,
         hours=hours,
-        filename="forecast.json"   # just the filename, fetch_forecast will write into CONFIGS_DIR
+        filename="forecast.json"   # is the filename, fetch_forecast will write into CONFIGS_DIR
     )
 
     # 6) Predict emissions
