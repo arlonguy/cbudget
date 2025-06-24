@@ -1,3 +1,5 @@
+# cbudget/fetch_forecast.py
+
 import json
 from pathlib import Path
 
@@ -22,7 +24,7 @@ def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
         return resp.json()
     except requests.RequestException as e:
         click.echo(f"Error fetching WattTime forecast: {e}", err=True)
-        click.echo("Falling back to static placeholder data", err=True)
+        click.echo("ℹFalling back to static placeholder data", err=True)
         return {}
 
 def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
@@ -42,7 +44,10 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
         transformed.append({"timestamp": ts, "value": val_g_per_kwh})
 
     output = {"region": region, "data": transformed}
-    output_path.write_text(json.dumps(output, ensure_ascii=False, indent=4), encoding="utf-8")
+    output_path.write_text(
+        json.dumps(output, ensure_ascii=False, indent=4),
+        encoding="utf-8"
+    )
     click.echo(f"Forecast saved to {output_path}")
     return output_path
 
@@ -54,18 +59,14 @@ def fetch_forecast(api_token: str,
     High-level wrapper:
       1) fetch raw forecast via fetch_forecast_data()
       2) transform & save via save_transformed_json()
-    Returns the Path to the saved JSON.
+    filename may be a relative or absolute path to where you want forecast.json.
     """
+    # 1) get raw data
     raw = fetch_forecast_data(api_token, region, hours)
 
-    # Locate the package's configs directory
-    module_dir = Path(__file__).resolve().parent
-    configs_dir = module_dir / "configs"
-    configs_dir.mkdir(parents=True, exist_ok=True)
+    # 2) resolve the output path exactly as given
+    output_path = Path(filename).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Construct the full path under configs/
-    output_path = configs_dir / filename
-
-    # Save transformed JSON
-    return save_transformed_json(raw, output_path, "us-west2")
-
+    # 3) write it out
+    return save_transformed_json(raw, output_path, 'us-west2')
