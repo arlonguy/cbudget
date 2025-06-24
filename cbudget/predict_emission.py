@@ -31,8 +31,9 @@ def predict_emission(plan_folder: str,
 
     # 2) Run Carbonifer CLI
     cmd = [
-        "./carbonifer", "plan", str(plan_path),
+        "carbonifer", "plan", str(plan_path),
         "--carbon-intensity-file", str(forecast_path),
+        "-f", "json",
         "--output", str(output_path)
     ]
     click.echo(f"Running: {' '.join(cmd)}")
