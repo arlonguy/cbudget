@@ -2,6 +2,5 @@ package carbon
 
 default allow = false
 
-allow {
-  input.emission_rate_gph <= input.threshold_rate_gph
-}
+# Single‐line boolean rule using the new `if` syntax
+allow = true if input.emission_rate_gph <= input.threshold_rate_gph
