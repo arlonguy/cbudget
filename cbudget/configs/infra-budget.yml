@@ -3,11 +3,11 @@ watttime:
   password: Cl0ud#C0mpu
 
 plan:
-  folder: TerraformPlan
+  folder: ..//TerraformPlan
 
 budget:
   # Threshold unit in g. Duration unit in h.
-  threshold: 10
+  threshold: 1000
   duration: 48
 
 opa:
