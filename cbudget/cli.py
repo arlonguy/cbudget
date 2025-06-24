@@ -31,7 +31,7 @@ def run(config: Path):
     try:
         cfg = yaml.safe_load(config.read_text(encoding="utf-8"))
     except Exception as e:
-        click.echo(f"Failed to load config {config}: {e}", err=True)
+        click.echo(f"❌ Failed to load config {config}: {e}", err=True)
         sys.exit(1)
 
     # 3) WattTime credentials
@@ -39,7 +39,7 @@ def run(config: Path):
     user = wt.get("username")
     pwd  = wt.get("password")
     if not (user and pwd):
-        click.echo("Missing WattTime credentials in config", err=True)
+        click.echo("❌ Missing WattTime credentials in config", err=True)
         sys.exit(1)
 
     # 4) Obtain WattTime token
@@ -55,7 +55,7 @@ def run(config: Path):
         if not token:
             raise ValueError("No token in response")
     except Exception as e:
-        click.echo(f"Failed to log in to WattTime: {e}", err=True)
+        click.echo(f"❌ Failed to log in to WattTime: {e}", err=True)
         sys.exit(1)
 
     # 5) Fetch forecast data (saves to base_dir/forecast.json)
@@ -71,11 +71,11 @@ def run(config: Path):
     # 6) Predict emissions
     raw_folder = cfg.get("plan", {}).get("folder")
     if not raw_folder:
-        click.echo("Missing plan.folder in config", err=True)
+        click.echo("❌ Missing plan.folder in config", err=True)
         sys.exit(1)
     plan_folder = Path(raw_folder).expanduser().resolve()
     if not plan_folder.exists():
-        click.echo(f"Plan folder not found: {plan_folder}", err=True)
+        click.echo(f"❌ Plan folder not found: {plan_folder}", err=True)
         sys.exit(1)
 
     prediction_output = base_dir / "predicted-emission-rate.json"
@@ -92,7 +92,7 @@ def run(config: Path):
     policy_name  = cfg.get("opa", {}).get("policy_file", "")
     policy_path  = base_dir / policy_name
     if not policy_path.exists():
-        click.echo(f"OPA policy not found: {policy_path}", err=True)
+        click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
         sys.exit(1)
 
     enforce_budget(
@@ -102,7 +102,7 @@ def run(config: Path):
         policy_file=str(policy_path)
     )
 
-    click.echo("All checks passed — budget within limits.")
+    click.echo("✅ All checks passed — budget within limits.")
 
 if __name__ == "__main__":
     run()

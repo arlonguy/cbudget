@@ -23,10 +23,10 @@ def predict_emission(plan_folder: str,
 
     # 1) Validate inputs
     if not plan_path.exists():
-        click.echo(f"Plan folder not found: {plan_path}", err=True)
+        click.echo(f"❌ Plan folder not found: {plan_path}", err=True)
         sys.exit(3)
     if not forecast_path.exists():
-        click.echo(f"Carbon intensity file not found: {forecast_path}", err=True)
+        click.echo(f"❌ Carbon intensity file not found: {forecast_path}", err=True)
         sys.exit(3)
 
     # 2) Run Carbonifer CLI
@@ -36,16 +36,16 @@ def predict_emission(plan_folder: str,
         "-f", "json",
         "--output", str(output_path)
     ]
-    click.echo(f"Running: {' '.join(cmd)}")
+    click.echo(f"🔧 Running: {' '.join(cmd)}")
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        click.echo(f"Carbonifer failed:\n{e.stderr}", err=True)
+        click.echo(f"❌ Carbonifer failed:\n{e.stderr}", err=True)
         sys.exit(3)
 
     # 3) Parse the Carbonifer output JSON
     if not output_path.exists():
-        click.echo(f"Prediction file not created: {output_path}", err=True)
+        click.echo(f"❌ Prediction file not created: {output_path}", err=True)
         sys.exit(3)
 
     try:
@@ -56,8 +56,8 @@ def predict_emission(plan_folder: str,
             raise KeyError("Total.CarbonEmissions")
         emission_rate = float(raw)
     except Exception as e:
-        click.echo(f"Could not parse CarbonEmissions from {output_path}: {e}", err=True)
+        click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
 
-    click.echo(f"Predicted emission rate: {emission_rate:.3f} gCO₂eq/h")
+    click.echo(f"✅ Predicted emission rate: {emission_rate:.3f} gCO₂eq/h")
     return emission_rate

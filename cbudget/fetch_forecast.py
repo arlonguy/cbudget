@@ -23,7 +23,7 @@ def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
-        click.echo(f"Error fetching WattTime forecast: {e}", err=True)
+        click.echo(f"❌ Error fetching WattTime forecast: {e}", err=True)
         click.echo("ℹFalling back to static placeholder data", err=True)
         return {}
 
@@ -48,7 +48,7 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
         json.dumps(output, ensure_ascii=False, indent=4),
         encoding="utf-8"
     )
-    click.echo(f"Forecast saved to {output_path}")
+    click.echo(f"✅ Forecast saved to {output_path}")
     return output_path
 
 def fetch_forecast(api_token: str,
