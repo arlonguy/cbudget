@@ -12,58 +12,52 @@ def enforce_budget(emission_rate_gph: float,
                    duration_h: float,
                    policy_file: str):
     """
-    emission_rate_gph : predicted emission rate (gCO2eq/h) from Carbonifer
-    threshold_g       : allowed total emissions (budget) in grams
-    duration_h        : job duration in hours
-    policy_file       : path to your Rego policy (e.g. carbon-policy.rego)
+    emission_rate_gph : predicted emission rate (gCO2eq/h)
+    threshold_g       : allowed total emissions (grams)
+    duration_h        : hours
+    policy_file       : path to Rego policy
     """
     policy_path = Path(policy_file)
     if not policy_path.exists():
         click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
         sys.exit(4)
 
-    # Compute allowed rate (g/h)
-    try:
-        allowed_rate_gph = threshold_g / duration_h
-    except Exception as e:
-        click.echo(f"❌ Invalid threshold or duration: {e}", err=True)
-        sys.exit(4)
+    # Compute allowed rate
+    allowed_rate_gph = threshold_g / duration_h
 
-    input_payload = {
+    payload_str = json.dumps({
         "emission_rate_gph": emission_rate_gph,
         "threshold_rate_gph": allowed_rate_gph
-    }
-    payload_str = json.dumps(input_payload)
+    })
 
-    # Invoke OPA, passing JSON via stdin with `--input -`
     cmd = [
         "opa", "eval",
         "-f", "json",
         "--data", str(policy_path),
-        "--input", "-",          # read input from stdin
+        "--stdin-input",
         "data.carbon.allow == true"
     ]
     proc = subprocess.run(
         cmd,
-        input=payload_str,       # feed the JSON here
+        input=payload_str,
         capture_output=True,
         text=True
     )
 
-    if proc.returncode != 0:
+    # Treat exit code 1 as error, 2 as “no result” (i.e. allow==false)
+    if proc.returncode not in (0, 2):
         click.echo(f"❌ OPA eval failed (exit {proc.returncode}):\n{proc.stderr}", err=True)
         sys.exit(5)
 
-    # Parse the JSON result
-    try:
-        result = json.loads(proc.stdout)
-        allowed = result["result"][0]["expressions"][0]["value"]
-    except Exception as e:
-        click.echo(
-            f"❌ Could not parse OPA JSON output: {e}\n"
-            f"STDERR: {proc.stderr}\nSTDOUT: {proc.stdout}", err=True
-        )
-        sys.exit(5)
+    # Parse JSON if any output; if empty or allowed==false, it’s a budget breach
+    allowed = False
+    if proc.stdout.strip():
+        try:
+            result = json.loads(proc.stdout)
+            allowed = result["result"][0]["expressions"][0]["value"]
+        except Exception as e:
+            click.echo(f"❌ Failed to parse OPA output: {e}\nstdout: {proc.stdout}", err=True)
+            sys.exit(5)
 
     if not allowed:
         click.echo(
