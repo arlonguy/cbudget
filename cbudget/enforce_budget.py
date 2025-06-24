@@ -33,27 +33,36 @@ def enforce_budget(emission_rate_gph: float,
         "emission_rate_gph": emission_rate_gph,
         "threshold_rate_gph": allowed_rate_gph
     }
+    payload_str = json.dumps(input_payload)
 
-    # Invoke OPA with JSON output
+    # Invoke OPA, passing JSON via stdin with `--input -`
     cmd = [
         "opa", "eval",
         "-f", "json",
         "--data", str(policy_path),
-        "--input", json.dumps(input_payload),
+        "--input", "-",          # read input from stdin
         "data.carbon.allow == true"
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd,
+        input=payload_str,       # feed the JSON here
+        capture_output=True,
+        text=True
+    )
 
     if proc.returncode != 0:
-        click.echo(f"OPA eval failed (exit {proc.returncode}):\n{proc.stderr}", err=True)
+        click.echo(f"❌ OPA eval failed (exit {proc.returncode}):\n{proc.stderr}", err=True)
         sys.exit(5)
 
+    # Parse the JSON result
     try:
         result = json.loads(proc.stdout)
-        # Navigate to the boolean value
         allowed = result["result"][0]["expressions"][0]["value"]
     except Exception as e:
-        click.echo(f"Could not parse OPA JSON output: {e}\nstderr: {proc.stderr}\nstdout: {proc.stdout}", err=True)
+        click.echo(
+            f"❌ Could not parse OPA JSON output: {e}\n"
+            f"STDERR: {proc.stderr}\nSTDOUT: {proc.stdout}", err=True
+        )
         sys.exit(5)
 
     if not allowed:
