@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cbudget"
+version = "0.1.0"
+description = "Carbon-budgeting CI/CD wrapper: fetch WattTime's forecast data, predict emissions via Carbonifer, enforce budget-threshold via OPA"
+authors = [
+  { name="Arlo Nguyen", email="arlo.nguy@gmail.com" }
+]
+dependencies = [
+  "click>=8.0",
+  "requests>=2.0",
+  "PyYAML>=5.4"
+]
+
+[project.scripts]
+cbudget = "cbudget.cli:run"
