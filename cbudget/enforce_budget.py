@@ -17,47 +17,56 @@ def enforce_budget(emission_rate_gph: float,
     duration_h        : job duration in hours
     policy_file       : path to your Rego policy (e.g. carbon-policy.rego)
     """
-    # 1) Validate policy file exists
     policy_path = Path(policy_file)
     if not policy_path.exists():
-        click.echo(f"OPA policy not found: {policy_path}", err=True)
+        click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
         sys.exit(4)
 
-    # 2) Compute allowed rate (g/h)
+    # Compute allowed rate (g/h)
     try:
         allowed_rate_gph = threshold_g / duration_h
     except Exception as e:
-        click.echo(f"Invalid threshold or duration: {e}", err=True)
+        click.echo(f"❌ Invalid threshold or duration: {e}", err=True)
         sys.exit(4)
 
-    # 3) Build OPA input payload
     input_payload = {
         "emission_rate_gph": emission_rate_gph,
         "threshold_rate_gph": allowed_rate_gph
     }
 
-    # 4) Invoke OPA to enforce the rate-based policy
+    # Invoke OPA with JSON output
     cmd = [
         "opa", "eval",
+        "-f", "json",
         "--data", str(policy_path),
         "--input", json.dumps(input_payload),
         "data.carbon.allow == true"
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
 
-    # 5) Handle enforcement result
-    if proc.returncode != 0 or "true" not in proc.stdout:
+    if proc.returncode != 0:
+        click.echo(f"OPA eval failed (exit {proc.returncode}):\n{proc.stderr}", err=True)
+        sys.exit(5)
+
+    try:
+        result = json.loads(proc.stdout)
+        # Navigate to the boolean value
+        allowed = result["result"][0]["expressions"][0]["value"]
+    except Exception as e:
+        click.echo(f"Could not parse OPA JSON output: {e}\nstderr: {proc.stderr}\nstdout: {proc.stdout}", err=True)
+        sys.exit(5)
+
+    if not allowed:
         click.echo(
-            f"Rate enforcement failed:\n"
+            f"❌ Rate enforcement failed:\n"
             f"   predicted: {emission_rate_gph:.2f} g/h\n"
             f"   allowed:   {allowed_rate_gph:.2f} g/h",
             err=True
         )
-        click.echo(proc.stdout, err=True)
         sys.exit(5)
 
     click.echo(
-        f"Predicted rate {emission_rate_gph:.2f} g/h ≤ "
+        f"✅ Predicted rate {emission_rate_gph:.2f} g/h ≤ "
         f"allowed rate {allowed_rate_gph:.2f} g/h"
     )
     sys.exit(0)
