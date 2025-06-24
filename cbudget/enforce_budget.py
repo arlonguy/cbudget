@@ -11,20 +11,12 @@ def enforce_budget(emission_rate_gph: float,
                    threshold_g: float,
                    duration_h: float,
                    policy_file: str):
-    """
-    emission_rate_gph : predicted emission rate (gCO2eq/h)
-    threshold_g       : allowed total emissions (grams)
-    duration_h        : hours
-    policy_file       : path to Rego policy
-    """
     policy_path = Path(policy_file)
     if not policy_path.exists():
         click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
         sys.exit(4)
 
-    # Compute allowed rate
     allowed_rate_gph = threshold_g / duration_h
-
     payload_str = json.dumps({
         "emission_rate_gph": emission_rate_gph,
         "threshold_rate_gph": allowed_rate_gph
@@ -44,22 +36,17 @@ def enforce_budget(emission_rate_gph: float,
         text=True
     )
 
-    # Treat exit code 1 as error, 2 as “no result” (i.e. allow==false)
+    # Always dump OPA output for visibility
+    # click.echo(f"OPA stderr:\n{proc.stderr}", err=True)
+    # click.echo(f"OPA stdout:\n{proc.stdout}", err=True)
+
+    # 0 = allow==true, 2 = allow==false, others = eval error
     if proc.returncode not in (0, 2):
-        click.echo(f"❌ OPA eval failed (exit {proc.returncode}):\n{proc.stderr}", err=True)
+        click.echo(f"❌ OPA eval error (exit {proc.returncode})", err=True)
         sys.exit(5)
 
-    # Parse JSON if any output; if empty or allowed==false, it’s a budget breach
-    allowed = False
-    if proc.stdout.strip():
-        try:
-            result = json.loads(proc.stdout)
-            allowed = result["result"][0]["expressions"][0]["value"]
-        except Exception as e:
-            click.echo(f"❌ Failed to parse OPA output: {e}\nstdout: {proc.stdout}", err=True)
-            sys.exit(5)
-
-    if not allowed:
+    # If exit code 2, budget was exceeded
+    if proc.returncode == 2:
         click.echo(
             f"❌ Rate enforcement failed:\n"
             f"   predicted: {emission_rate_gph:.2f} g/h\n"
@@ -68,6 +55,7 @@ def enforce_budget(emission_rate_gph: float,
         )
         sys.exit(5)
 
+    # Otherwise exit code 0 → success
     click.echo(
         f"✅ Predicted rate {emission_rate_gph:.2f} g/h ≤ "
         f"allowed rate {allowed_rate_gph:.2f} g/h"
