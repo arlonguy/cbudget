@@ -1,5 +1,3 @@
-# cbudget/enforce_budget.py
-
 import json
 import subprocess
 import sys
@@ -74,4 +72,4 @@ def enforce_budget(emission_rate_gph: float,
         f"✅ Predicted rate {emission_rate_gph:.2f} g/h ≤ "
         f"allowed rate {allowed_rate_gph:.2f} g/h"
     )
-    sys.exit(0)
+    return
