@@ -2,6 +2,6 @@
 .idea/
 
 # Ignore local config
-cbudget/configs
+cbudget/configs/
 
 
