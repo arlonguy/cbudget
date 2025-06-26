@@ -1,5 +1,3 @@
-# cbudget/fetch_forecast.py
-
 import json
 from pathlib import Path
 
