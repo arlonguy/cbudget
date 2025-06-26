@@ -1,0 +1,7 @@
+# Ignore all IntelliJ project files
+.idea/
+
+# Ignore local config
+cbudget/configs
+
+
