@@ -69,11 +69,13 @@ def run(config: Path):
     )
 
     # 6) Predict emissions
-    raw_folder = cfg.get("plan", {}).get("folder")
-    if not raw_folder:
+    raw = cfg.get("plan", {}).get("folder")
+    if not raw:
         click.echo("❌ Missing plan.folder in config", err=True)
         sys.exit(1)
-    plan_folder = Path(raw_folder).expanduser().resolve()
+
+    # resolve it *relative* to wherever the config file lives
+    plan_folder = (base_dir / raw).expanduser().resolve()
     if not plan_folder.exists():
         click.echo(f"❌ Plan folder not found: {plan_folder}", err=True)
         sys.exit(1)
