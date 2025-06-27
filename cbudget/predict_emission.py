@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -29,9 +30,15 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Carbon intensity file not found: {forecast_path}", err=True)
         sys.exit(3)
 
-    # 2) Run Carbonifer CLI
+    # find the carbonifer binary on PATH
+    carbonifer_bin = shutil.which("carbonifer")
+    if not carbonifer_bin:
+         click.echo("❌ Could not find the ‘carbonifer’ binary on PATH", err=True)
+         sys.exit(3)
+
+    # 2) Build your cmd with that full path
     cmd = [
-        "./carbonifer", "plan", str(plan_path),
+        carbonifer_bin, "plan", str(plan_path),
         "--carbon-intensity-file", str(forecast_path),
         "-f", "json",
         "--output", str(output_path)
