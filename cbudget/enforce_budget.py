@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 
 import click
@@ -26,13 +27,24 @@ def enforce_budget(emission_rate_gph: float,
         "threshold_rate_gph": allowed_rate_gph
     }
 
+    # find the opa binary on PATH
+    opa_bin = shutil.which("opa")
+    if not opa_bin:
+        opa_bin = "/usr/local/bin/opa"  # fallback
+        if not Path(opa_bin).exists():
+            click.echo(f"❌ Could not find the ‘opa’ binary", err=True)
+            sys.exit(4)
+
+    # build cmd with that full path
     cmd = [
-        "opa", "eval",
+        opa_bin,
+        "eval",
         "-f", "json",
-        "--data", str(policy_path),
+        "--data", policy_file,
         "--stdin-input",
         "data.carbon.allow == true"
     ]
+
     # Run OPA, feeding JSON on stdin
     proc = subprocess.run(
         cmd,
