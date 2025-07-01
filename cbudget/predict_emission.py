@@ -68,3 +68,12 @@ def predict_emission(plan_folder: str,
 
     click.echo(f"✅ Predicted emission rate: {emission_rate:.3f} gCO₂eq/h")
     return emission_rate
+
+
+def calculate_total_emissions(emission_rate_gph: float, duration_h: float) -> float:
+    """
+    Given a rate in gCO2eq/h and a duration in hours, return total emissions in grams.
+    """
+    total_g = emission_rate_gph * duration_h
+    click.echo(f"✅ Total predicted emissions: {total_g:.0f} g over {duration_h:.0f} h")
+    return total_g

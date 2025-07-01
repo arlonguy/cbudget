@@ -7,7 +7,7 @@ import yaml
 from requests.auth import HTTPBasicAuth
 
 from cbudget.fetch_forecast import fetch_forecast
-from cbudget.predict_emission import predict_emission
+from cbudget.predict_emission import predict_emission, calculate_total_emissions
 from cbudget.enforce_budget import enforce_budget
 
 # Path to the bundled default config within the package
@@ -86,6 +86,10 @@ def run(config: Path):
         forecast_file=forecast_path,
         output_file=prediction_output
     )
+
+    # Calculate total mass over your duration
+    duration_h = float(cfg.get("budget", {}).get("duration", 1))
+    total_emissions = calculate_total_emissions(emission_rate, duration_h)
 
     # 7) Enforce budget
     b_cfg        = cfg.get("budget", {})
