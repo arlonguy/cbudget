@@ -9,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 from cbudget.fetch_forecast import fetch_forecast
 from cbudget.predict_emission import predict_emission, calculate_total_emissions
 from cbudget.enforce_budget import enforce_budget
+from cbudget.temporal_window import find_optimal_window
 
 # Path to the bundled default config within the package
 PACKAGE_DIR    = Path(__file__).resolve().parent
@@ -106,6 +107,15 @@ def run(config: Path):
         threshold_g=threshold_g,
         duration_h=duration_h,
         policy_file=str(policy_path)
+    )
+
+    # 8) Compute optimal deployment window
+    duration_h = int(cfg.get("budget", {}).get("duration", 1))
+    start, end, avg = find_optimal_window(forecast_path, duration_h)
+    click.echo(
+        f"✅ Optimal {duration_h} h window: "
+        f"{start.isoformat()} → {end.isoformat()} "
+        f"(avg {avg:.2f} gCO₂eq/kWh)"
     )
 
     click.echo("✅ All checks passed — budget within limits.")
