@@ -66,7 +66,7 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
 
-    click.echo(f"✅ Predicted emission rate of the provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h (average over the next 72h)")
+    click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h (average over the next 72h)")
     return emission_rate
 
 
@@ -75,5 +75,5 @@ def calculate_total_emissions(emission_rate_gph: float, duration_h: float) -> fl
     Given a rate in gCO2eq/h and a duration in hours, return total emissions in grams.
     """
     total_g = emission_rate_gph * duration_h
-    click.echo(f"✅ Total predicted emissions of the provisioned IaC resources: {total_g:.0f} g over {duration_h:.0f} h")
+    click.echo(f"🏭 Total predicted emissions of provisioned IaC resources: {total_g:.0f} g over {duration_h:.0f} h")
     return total_g

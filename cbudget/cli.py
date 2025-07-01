@@ -113,9 +113,9 @@ def run(config: Path):
     duration_h = int(cfg.get("budget", {}).get("duration", 1))
     start, end, avg = find_optimal_window(forecast_path, duration_h)
     click.echo(
-        f"✅ Optimal {duration_h} h window: "
+        f"⏳ Optimal {duration_h} h window: "
         f"{start.isoformat()} → {end.isoformat()} "
-        f"(average grid carbon intensity {avg:.2f} gCO₂eq/kWh)"
+        f"(average lowest grid carbon intensity {avg:.2f} gCO₂eq/kWh)"
     )
 
     click.echo("✅ All checks passed — budget within limits.")

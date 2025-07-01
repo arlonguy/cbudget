@@ -74,14 +74,14 @@ def enforce_budget(emission_rate_gph: float,
     if not value:
         click.echo(
             f"❌ Rate enforcement failed:\n"
-            f"   predicted: {emission_rate_gph:.2f} g/h\n"
-            f"   allowed:   {allowed_rate_gph:.2f} g/h",
+            f"   predicted emission rate: {emission_rate_gph:.2f} g/h\n"
+            f"   allowed emission budget rate:   {allowed_rate_gph:.2f} g/h",
             err=True
         )
         sys.exit(5)
 
     click.echo(
-        f"✅ Predicted rate {emission_rate_gph:.2f} g/h ≤ "
-        f"allowed rate {allowed_rate_gph:.2f} g/h"
+        f"💰 Predicted emission rate {emission_rate_gph:.2f} g/h ≤ "
+        f"allowed emission budget rate {allowed_rate_gph:.2f} g/h"
     )
     return

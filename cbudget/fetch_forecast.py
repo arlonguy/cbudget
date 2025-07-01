@@ -46,7 +46,7 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
         json.dumps(output, ensure_ascii=False, indent=4),
         encoding="utf-8"
     )
-    click.echo(f"✅ Forecast saved to {output_path}")
+    click.echo(f"🌡️ Forecast saved to {output_path}")
     return output_path
 
 def fetch_forecast(api_token: str,
