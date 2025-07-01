@@ -115,7 +115,7 @@ def run(config: Path):
     click.echo(
         f"✅ Optimal {duration_h} h window: "
         f"{start.isoformat()} → {end.isoformat()} "
-        f"(avg {avg:.2f} gCO₂eq/kWh)"
+        f"(average grid carbon intensity {avg:.2f} gCO₂eq/kWh)"
     )
 
     click.echo("✅ All checks passed — budget within limits.")
