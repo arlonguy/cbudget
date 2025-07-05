@@ -57,11 +57,19 @@ def predict_emission(plan_folder: str,
 
     try:
         payload = json.loads(output_path.read_text(encoding="utf-8"))
-        total   = payload.get("Total", {})
-        raw     = total.get("CarbonEmissions")
+        total = payload.get("Total", {})
+        raw = total.get("CarbonEmissions")
         if raw is None:
             raise KeyError("Total.CarbonEmissions")
         emission_rate = float(raw)
+        power_raw = total.get("Power")
+        if power_raw is not None:
+            try:
+                power_value = float(power_raw)
+                click.echo(
+                    f"🔋 Estimated energy usage of provisioned cloud resources with an average utilization rate of 0.5 (50%): {power_value:.10f} Wh/h")
+            except Exception as e:
+                click.echo(f"⚠️  Failed to parse Power from prediction file: {e}", err=True)
     except Exception as e:
         click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
