@@ -74,7 +74,7 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
 
-    click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h (average over next 72h)")
+    click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h (average over next 24h)")
     return emission_rate
 
 

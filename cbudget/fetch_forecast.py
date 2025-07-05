@@ -51,7 +51,7 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
 
 def fetch_forecast(api_token: str,
                    region: str = "CAISO_NORTH",
-                   hours: int = 72,
+                   hours: int = 24,
                    filename: str = "forecast.json") -> Path:
     """
     High-level wrapper:
