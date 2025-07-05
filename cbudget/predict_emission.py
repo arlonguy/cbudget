@@ -67,7 +67,7 @@ def predict_emission(plan_folder: str,
             try:
                 power_value = float(power_raw)
                 click.echo(
-                    f"🔋 Estimated energy usage of provisioned cloud resources with an average utilization rate of 0.5 (50%): {power_value:.10f} Wh/h")
+                    f"🔋 Estimated energy usage of provisioned IaC resources with an average utilization rate of 0.5 (50%): {power_value:.10f} Wh/h")
             except Exception as e:
                 click.echo(f"⚠️  Failed to parse Power from prediction file: {e}", err=True)
     except Exception as e:
