@@ -121,7 +121,7 @@ def run(config: Path):
 
     # multiply by your energy usage (Wh/h) to get gCO₂eq/h for that window
     window_rate = avg_intensity * (energy_usage_whph / 1000.0)
-    click.echo(f"🏭 Predicted emission rate for optimal window duration: {window_rate:.3f} gCO₂eq/h")
+    click.echo(f"🏭 Predicted emission rate for ⏳ optimal window duration: {window_rate:.3f} gCO₂eq/h")
 
 if __name__ == "__main__":
     run()
