@@ -23,96 +23,65 @@ def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
         return resp.json()
     except requests.RequestException as e:
         click.echo(f"❌ Error fetching WattTime forecast: {e}", err=True)
-        click.echo("ℹFalling back to static placeholder data", err=True)
+        click.echo("ℹ Falling back to static placeholder data", err=True)
         return {}
 
-def save_transformed_json(data: dict, output_path: Path, region: str, duration_h: int | None = None) -> Path:
+def save_transformed_json(data: dict,
+                          output_path: Path,
+                          region: str,
+                          duration_h: int) -> Path:
     """
-    Transform raw WattTime data for Carbonifer:
-      - Converts from lbs/MWh to g/kWh.
-      - Wraps points as {"timestamp": ..., "value": ...}.
-    Writes result to output_path and returns it.
+    Transform raw WattTime data for Carbonifer, but *slice* it down
+    to only the first `duration_h` hours worth of data (5-min intervals).
     """
-    points = data.get("data", [])
-    conversion_factor = 0.453592  # lbs/MWh → g/kWh
+    raw_points = data.get("data", [])
+    if len(raw_points) < 2:
+        raise ValueError("Not enough forecast points to infer interval")
+
+    # infer interval in minutes between samples
+    t0 = datetime.fromisoformat(raw_points[0]["point_time"].replace("+00:00", "Z"))
+    t1 = datetime.fromisoformat(raw_points[1]["point_time"].replace("+00:00", "Z"))
+    interval_min = (t1 - t0).total_seconds() / 60
+
+    # how many samples cover duration_h hours?
+    samples_needed = int(duration_h * 60 / interval_min)
+
+    # slice to only that many points
+    to_slice = raw_points[:samples_needed]
+
+    # lbs/MWh → g/kWh conversion
+    factor = 0.453592
 
     transformed = []
-    for point in points:
+    for point in to_slice:
         ts = point["point_time"].replace("+00:00", "Z")
-        val_g_per_kwh = round(point["value"] * conversion_factor, 2)
-        transformed.append({"timestamp": ts, "value": val_g_per_kwh})
-
-    # If user requested only the FIRST duration_h hours:
-    if duration_h is not None and duration_h > 0 and len(transformed) >= 2:
-        # compute interval between first two points
-        t0 = datetime.fromisoformat(transformed[0]["timestamp"].replace("Z", "+00:00"))
-        t1 = datetime.fromisoformat(transformed[1]["timestamp"].replace("Z", "+00:00"))
-        delta_min = (t1 - t0).total_seconds() / 60.0
-        pts_per_hour = int(round(60.0 / delta_min))
-        keep = duration_h * pts_per_hour
-        transformed = transformed[:keep]
+        val_gpkwh = round(point["value"] * factor, 2)
+        transformed.append({"timestamp": ts, "value": val_gpkwh})
 
     output = {"region": region, "data": transformed}
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=4),
         encoding="utf-8"
     )
-    click.echo(f"🌡️ Forecast saved to {output_path}")
+    click.echo(f"🌡️ Forecast (first {duration_h} h) saved to {output_path}")
     return output_path
 
 def fetch_forecast(api_token: str,
                    region: str = "CAISO_NORTH",
                    hours: int = 72,
                    filename: str = "forecast.json",
-                   duration_h: int | None = None) -> Path:
+                   duration_h: int = 1) -> Path:
     """
-    1) fetch raw forecast via fetch_forecast_data()
-    2) transform & save via save_transformed_json()
-       keeping only the first `duration_h` hours if requested.
+    1) Fetch raw forecast via fetch_forecast_data()
+    2) Transform & save via save_transformed_json(), slicing to the
+       first `duration_h` hours worth of 5-min points.
     """
+    # 1) fetch raw data
     raw = fetch_forecast_data(api_token, region, hours)
+
+    # 2) prepare output path
     output_path = Path(filename).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 3) write it out
+    # 3) slice & save
     return save_transformed_json(raw, output_path, 'us-west2', duration_h)
-
-
-def fetch_forecast(api_token: str,
-                   region: str = "CAISO_NORTH",
-                   hours: int = 72,
-                   filename: str = "forecast.json") -> Path:
-    """
-    1) Fetch raw data
-    2) Transform & save full-horizon (>duration) forecast to `filename`
-    """
-    raw = fetch_forecast_data(api_token, region, hours)
-    output_path = Path(filename).expanduser().resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    return save_transformed_json(raw, output_path, 'us-west2')
-
-
-def slice_forecast(full_path: Path, duration_h: int, out_path: Path) -> Path:
-    """
-    Read the full-horizon forecast at `full_path`, then write only the next
-    `duration_h` hours of data (based on timestamps) to `out_path`.
-    """
-    payload = json.loads(full_path.read_text(encoding="utf-8"))
-    pts = payload.get("data", [])
-    if not pts:
-        raise ValueError("No data points in forecast file")
-
-    # parse first timestamp
-    t0 = datetime.fromisoformat(pts[0]["timestamp"].replace("Z", "+00:00"))
-    cutoff = t0 + timedelta(hours=duration_h)
-
-    sliced = [
-        p for p in pts
-        if datetime.fromisoformat(p["timestamp"].replace("Z", "+00:00")) < cutoff
-    ]
-
-    new = {"region": 'us-west2', "data": sliced}
-    out_path.write_text(json.dumps(new, ensure_ascii=False, indent=4),
-                        encoding="utf-8")
-    click.echo(f"Sliced forecast to next {duration_h} h → {out_path}")
-    return out_path

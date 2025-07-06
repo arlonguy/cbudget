@@ -6,7 +6,7 @@ import requests
 import yaml
 from requests.auth import HTTPBasicAuth
 
-from cbudget.fetch_forecast import fetch_forecast, slice_forecast
+from cbudget.fetch_forecast import fetch_forecast
 from cbudget.predict_emission import predict_emission, calculate_total_emissions
 from cbudget.enforce_budget import enforce_budget
 from cbudget.temporal_window import find_optimal_window
@@ -24,7 +24,7 @@ BUNDLED_CONFIG = PACKAGE_DIR / "configs" / "infra-budget.yml"
 def run(config: Path):
     """Run the full carbon-budget check end-to-end."""
     # 1) Determine which config to use
-    config = config or BUNDLED_CONFIG
+    config   = Path(config) if config else BUNDLED_CONFIG
     base_dir = config.parent
     click.echo(f"🔧 Using config: {config}")
 
@@ -36,7 +36,7 @@ def run(config: Path):
         sys.exit(1)
 
     # 3) WattTime credentials
-    wt = cfg.get("watttime", {})
+    wt   = cfg.get("watttime", {})
     user = wt.get("username")
     pwd  = wt.get("password")
     if not (user and pwd):
@@ -44,10 +44,9 @@ def run(config: Path):
         sys.exit(1)
 
     # 4) Obtain WattTime token
-    login_url = "https://api.watttime.org/login"
     try:
         resp = requests.get(
-            login_url,
+            "https://api.watttime.org/login",
             auth=HTTPBasicAuth(user, pwd),
             timeout=10
         )
@@ -59,50 +58,78 @@ def run(config: Path):
         click.echo(f"❌ Failed to log in to WattTime: {e}", err=True)
         sys.exit(1)
 
-    # 5) Fetch forecast data (saves to base_dir/forecast.json)
-    region        = cfg.get("plan", {}).get("region", "CAISO_NORTH")
-    hours         = cfg.get("plan", {}).get("hours", 72)
-    duration_h    = int(cfg.get("budget", {}).get("duration", 1))
-    full_fcst = fetch_forecast(token, region, hours,
-                               filename=str(base_dir / "forecast.json"))
+    # 5) Parameters for forecast
+    region     = cfg.get("plan", {}).get("region", "CAISO_NORTH")
+    hours      = int(cfg.get("plan", {}).get("hours", 72))
+    duration_h = int(cfg.get("budget", {}).get("duration", 1))
 
-    # write a second file containing only the next duration_h hours
-    window_fcst = base_dir / "forecast_window.json"
-    slice_forecast(full_fcst, duration_h, window_fcst)
+    # 5a) full 72h forecast → forecast_full.json
+    full_fcst = fetch_forecast(
+        api_token  = token,
+        region     = region,
+        hours      = hours,
+        filename   = str(base_dir / "forecast_full.json"),
+        duration_h = hours,      # keep all 72h
+    )
 
-    # 6) Predict emissions using only the sliced window
-    raw_folder = cfg["plan"]["folder"]
+    # 5b) budget-window forecast → forecast.json
+    window_fcst = fetch_forecast(
+        api_token  = token,
+        region     = region,
+        hours      = hours,
+        filename   = str(base_dir / "forecast.json"),
+        duration_h = duration_h,  # keep only first duration_h
+    )
+
+    # 6) Predict emissions using the budget-window forecast
+    raw_folder    = cfg.get("plan", {}).get("folder")
+    if not raw_folder:
+        click.echo("❌ Missing plan.folder in config", err=True)
+        sys.exit(1)
     plan_folder = (base_dir / raw_folder).expanduser().resolve()
     if not plan_folder.exists():
         click.echo(f"❌ Plan folder not found: {plan_folder}", err=True)
         sys.exit(1)
 
-    pred_out = base_dir / "predicted-emission-rate.json"
-    energy_whph, rate_gph = predict_emission(
-        plan_folder=str(plan_folder),
-        forecast_file=window_fcst,
-        output_file=pred_out
+    prediction_output = base_dir / "predicted-emission-rate.json"
+    energy_whph, emission_rate = predict_emission(
+        plan_folder    = str(plan_folder),
+        forecast_file  = window_fcst,
+        duration_h     = duration_h,
+        output_file    = prediction_output
     )
 
-    # Calculate total mass over your duration
-    total_g = calculate_total_emissions(rate_gph, duration_h)
+    # 6b) Total predicted emissions over the duration
+    calculate_total_emissions(emission_rate, duration_h)
 
     # 7) Enforce budget
-    b_cfg        = cfg.get("budget", {})
-    threshold = float(cfg["budget"]["threshold"])
-    policy = base_dir / cfg["opa"]["policy_file"]
-    enforce_budget(rate_gph, threshold, duration_h, str(policy))
+    threshold_g = float(cfg.get("budget", {}).get("threshold", 0))
+    policy_file = cfg.get("opa", {}).get("policy_file", "")
+    policy_path = base_dir / policy_file
+    if not policy_path.exists():
+        click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
+        sys.exit(1)
 
+    enforce_budget(
+        emission_rate_gph = emission_rate,
+        threshold_g       = threshold_g,
+        duration_h        = duration_h,
+        policy_file       = str(policy_path)
+    )
     click.echo("✅ All checks passed — budget within limits.")
 
-    # 8) Find the lowest‐intensity window and compute its gCO₂eq/h
-    start, end, avg_int = find_optimal_window(full_fcst, duration_h)
-    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg grid carbon intensity {avg_int:.2f} gCO₂eq/kWh)")
+    # 8) Find optimal window in the *full* 72h forecast
+    start, end, avg_intensity = find_optimal_window(full_fcst, duration_h)
+    click.echo(
+        f"⏳ Optimal {duration_h}h window: {start.isoformat()} → {end.isoformat()} "
+        f"(avg grid carbon intensity {avg_intensity:.2f} gCO₂eq/kWh)"
+    )
 
-    # and show its emission rate using your known Wh/h
-    window_rate = avg_int * (energy_whph / 1000.0)
-    click.echo(f"🏭 Predicted emission rate for ⏳ optimal window duration: {window_rate:.3f} gCO₂eq/h")
-
+    # 9) Emission rate during that optimal window
+    window_rate = avg_intensity * (energy_whph / 1000.0)
+    click.echo(
+        f"🏭 Emission rate in optimal window: {window_rate:.3f} gCO₂eq/h"
+    )
 
 if __name__ == "__main__":
     run()
