@@ -84,10 +84,12 @@ def run(config: Path):
         sys.exit(1)
 
     prediction_output = base_dir / "predicted-emission-rate.json"
-    emission_rate     = predict_emission(
-        plan_folder=str(plan_folder),
-        forecast_file=forecast_path,
-        output_file=prediction_output
+    # pass duration_h into predict_emission
+    emission_rate = predict_emission(
+        plan_folder = str(plan_folder),
+        forecast_file = forecast_path,
+        duration_h = duration_h,
+        output_file = prediction_output
     )
 
     # Calculate total mass over your duration
