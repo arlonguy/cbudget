@@ -8,6 +8,7 @@ import click
 
 def predict_emission(plan_folder: str,
                      forecast_file: Path,
+                     duration_h: float,
                      output_file: Path = Path(__file__).resolve().parent
                                              / "configs"
                                              / "predicted-emission-rate.json") -> float:
@@ -74,7 +75,7 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
 
-    click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h (average over next 24h)")
+    click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h during next {duration_h:.0f} h")
     return emission_rate
 
 
