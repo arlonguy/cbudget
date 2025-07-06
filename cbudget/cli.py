@@ -118,7 +118,7 @@ def run(config: Path):
         base_dir / "forecast.json",
         int(duration_h)
     )
-    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg {avg_intensity:.2f} gCO₂eq/kWh)")
+    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg grid carbon intensity {avg_intensity:.2f} gCO₂eq/kWh)")
 
     # multiply by your energy usage (Wh/h) to get gCO₂eq/h for that window
     window_rate = avg_intensity * (energy_usage_whph / 1000.0)
