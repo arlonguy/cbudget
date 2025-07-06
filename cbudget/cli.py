@@ -128,7 +128,7 @@ def run(config: Path):
     # 9) Emission rate during that optimal window
     window_rate = avg_intensity * (energy_whph / 1000.0)
     click.echo(
-        f"🏭 Emission rate in optimal window: {window_rate:.3f} gCO₂eq/h"
+        f"🏭 Predicted emission rate in optimal window: {window_rate:.3f} gCO₂eq/h"
     )
 
 if __name__ == "__main__":
