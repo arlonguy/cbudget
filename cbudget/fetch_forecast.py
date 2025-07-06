@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from datetime import datetime
 
 import click
 import requests
@@ -25,7 +26,7 @@ def fetch_forecast_data(api_token: str, region: str, hours: int) -> dict:
         click.echo("ℹFalling back to static placeholder data", err=True)
         return {}
 
-def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
+def save_transformed_json(data: dict, output_path: Path, region: str, duration_h: int | None = None) -> Path:
     """
     Transform raw WattTime data for Carbonifer:
       - Converts from lbs/MWh to g/kWh.
@@ -41,6 +42,16 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
         val_g_per_kwh = round(point["value"] * conversion_factor, 2)
         transformed.append({"timestamp": ts, "value": val_g_per_kwh})
 
+    # If user requested only the FIRST duration_h hours:
+    if duration_h is not None and duration_h > 0 and len(transformed) >= 2:
+        # compute interval between first two points
+        t0 = datetime.fromisoformat(transformed[0]["timestamp"].replace("Z", "+00:00"))
+        t1 = datetime.fromisoformat(transformed[1]["timestamp"].replace("Z", "+00:00"))
+        delta_min = (t1 - t0).total_seconds() / 60.0
+        pts_per_hour = int(round(60.0 / delta_min))
+        keep = duration_h * pts_per_hour
+        transformed = transformed[:keep]
+
     output = {"region": region, "data": transformed}
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=4),
@@ -51,20 +62,17 @@ def save_transformed_json(data: dict, output_path: Path, region: str) -> Path:
 
 def fetch_forecast(api_token: str,
                    region: str = "CAISO_NORTH",
-                   hours: int = 24,
-                   filename: str = "forecast.json") -> Path:
+                   hours: int = 72,
+                   filename: str = "forecast.json",
+                   duration_h: int | None = None) -> Path:
     """
-    High-level wrapper:
-      1) fetch raw forecast via fetch_forecast_data()
-      2) transform & save via save_transformed_json()
-    filename may be a relative or absolute path to where you want forecast.json.
+    1) fetch raw forecast via fetch_forecast_data()
+    2) transform & save via save_transformed_json()
+       keeping only the first `duration_h` hours if requested.
     """
-    # 1) get raw data
     raw = fetch_forecast_data(api_token, region, hours)
-
-    # 2) resolve the output path exactly as given
     output_path = Path(filename).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 3) write it out
-    return save_transformed_json(raw, output_path, 'us-west2')
+    return save_transformed_json(raw, output_path, 'us-west2', duration_h)

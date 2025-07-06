@@ -62,11 +62,13 @@ def run(config: Path):
     # 5) Fetch forecast data (saves to base_dir/forecast.json)
     region        = cfg.get("plan", {}).get("region", "CAISO_NORTH")
     hours         = cfg.get("plan", {}).get("hours", 72)
+    duration_h    = int(cfg.get("budget", {}).get("duration", 1))
     forecast_path = fetch_forecast(
-        api_token=token,
-        region=region,
-        hours=hours,
-        filename=str(base_dir / "forecast.json")
+        api_token = token,
+        region = region,
+        hours = hours,
+        filename = str(base_dir / "forecast.json"),
+        duration_h = duration_h
     )
 
     # 6) Predict emissions
