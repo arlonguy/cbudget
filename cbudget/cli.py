@@ -87,6 +87,7 @@ def run(config: Path):
     energy_usage_whph, emission_rate = predict_emission(
         plan_folder = str(plan_folder),
         forecast_file = forecast_path,
+        duration_h = duration_h,
         output_file = prediction_output
     )
 
