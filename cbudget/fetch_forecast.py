@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import click
 import requests
@@ -76,3 +76,43 @@ def fetch_forecast(api_token: str,
 
     # 3) write it out
     return save_transformed_json(raw, output_path, 'us-west2', duration_h)
+
+
+def fetch_forecast(api_token: str,
+                   region: str = "CAISO_NORTH",
+                   hours: int = 72,
+                   filename: str = "forecast.json") -> Path:
+    """
+    1) Fetch raw data
+    2) Transform & save full-horizon (>duration) forecast to `filename`
+    """
+    raw = fetch_forecast_data(api_token, region, hours)
+    output_path = Path(filename).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return save_transformed_json(raw, output_path, 'us-west2')
+
+
+def slice_forecast(full_path: Path, duration_h: int, out_path: Path) -> Path:
+    """
+    Read the full-horizon forecast at `full_path`, then write only the next
+    `duration_h` hours of data (based on timestamps) to `out_path`.
+    """
+    payload = json.loads(full_path.read_text(encoding="utf-8"))
+    pts = payload.get("data", [])
+    if not pts:
+        raise ValueError("No data points in forecast file")
+
+    # parse first timestamp
+    t0 = datetime.fromisoformat(pts[0]["timestamp"].replace("Z", "+00:00"))
+    cutoff = t0 + timedelta(hours=duration_h)
+
+    sliced = [
+        p for p in pts
+        if datetime.fromisoformat(p["timestamp"].replace("Z", "+00:00")) < cutoff
+    ]
+
+    new = {"region": 'us-west2', "data": sliced}
+    out_path.write_text(json.dumps(new, ensure_ascii=False, indent=4),
+                        encoding="utf-8")
+    click.echo(f"Sliced forecast to next {duration_h} h → {out_path}")
+    return out_path

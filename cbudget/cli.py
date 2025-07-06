@@ -6,7 +6,7 @@ import requests
 import yaml
 from requests.auth import HTTPBasicAuth
 
-from cbudget.fetch_forecast import fetch_forecast
+from cbudget.fetch_forecast import fetch_forecast, slice_forecast
 from cbudget.predict_emission import predict_emission, calculate_total_emissions
 from cbudget.enforce_budget import enforce_budget
 from cbudget.temporal_window import find_optimal_window
@@ -63,66 +63,46 @@ def run(config: Path):
     region        = cfg.get("plan", {}).get("region", "CAISO_NORTH")
     hours         = cfg.get("plan", {}).get("hours", 72)
     duration_h    = int(cfg.get("budget", {}).get("duration", 1))
-    forecast_path = fetch_forecast(
-        api_token = token,
-        region = region,
-        hours = hours,
-        filename = str(base_dir / "forecast.json"),
-        duration_h = duration_h
-    )
+    full_fcst = fetch_forecast(token, region, hours,
+                               filename=str(base_dir / "forecast.json"))
 
-    # 6) Predict emissions
-    raw = cfg.get("plan", {}).get("folder")
-    if not raw:
-        click.echo("❌ Missing plan.folder in config", err=True)
-        sys.exit(1)
+    # write a second file containing only the next duration_h hours
+    window_fcst = base_dir / "forecast_window.json"
+    slice_forecast(full_fcst, duration_h, window_fcst)
 
-    # resolve it *relative* to wherever the config file lives
-    plan_folder = (base_dir / raw).expanduser().resolve()
+    # 6) Predict emissions using only the sliced window
+    raw_folder = cfg["plan"]["folder"]
+    plan_folder = (base_dir / raw_folder).expanduser().resolve()
     if not plan_folder.exists():
         click.echo(f"❌ Plan folder not found: {plan_folder}", err=True)
         sys.exit(1)
 
-    prediction_output = base_dir / "predicted-emission-rate.json"
-    energy_usage_whph, emission_rate = predict_emission(
-        plan_folder = str(plan_folder),
-        forecast_file = forecast_path,
-        duration_h = duration_h,
-        output_file = prediction_output
+    pred_out = base_dir / "predicted-emission-rate.json"
+    energy_whph, rate_gph = predict_emission(
+        plan_folder=str(plan_folder),
+        forecast_file=window_fcst,
+        output_file=pred_out
     )
 
     # Calculate total mass over your duration
-    duration_h = float(cfg.get("budget", {}).get("duration", 1))
-    total_emissions = calculate_total_emissions(emission_rate, duration_h)
+    total_g = calculate_total_emissions(rate_gph, duration_h)
 
     # 7) Enforce budget
     b_cfg        = cfg.get("budget", {})
-    threshold_g  = float(b_cfg.get("threshold", 0))
-    duration_h   = float(b_cfg.get("duration", 1))
-    policy_name  = cfg.get("opa", {}).get("policy_file", "")
-    policy_path  = base_dir / policy_name
-    if not policy_path.exists():
-        click.echo(f"❌ OPA policy not found: {policy_path}", err=True)
-        sys.exit(1)
+    threshold = float(cfg["budget"]["threshold"])
+    policy = base_dir / cfg["opa"]["policy_file"]
+    enforce_budget(rate_gph, threshold, duration_h, str(policy))
 
-    enforce_budget(
-        emission_rate_gph=emission_rate,
-        threshold_g=threshold_g,
-        duration_h=duration_h,
-        policy_file=str(policy_path)
-    )
     click.echo("✅ All checks passed — budget within limits.")
 
     # 8) Find the lowest‐intensity window and compute its gCO₂eq/h
-    start, end, avg_intensity = find_optimal_window(
-        base_dir / "forecast.json",
-        int(duration_h)
-    )
-    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg grid carbon intensity {avg_intensity:.2f} gCO₂eq/kWh)")
+    start, end, avg_int = find_optimal_window(full_fcst, duration_h)
+    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg grid carbon intensity {avg_int:.2f} gCO₂eq/kWh)")
 
-    # multiply by your energy usage (Wh/h) to get gCO₂eq/h for that window
-    window_rate = avg_intensity * (energy_usage_whph / 1000.0)
+    # and show its emission rate using your known Wh/h
+    window_rate = avg_int * (energy_whph / 1000.0)
     click.echo(f"🏭 Predicted emission rate for ⏳ optimal window duration: {window_rate:.3f} gCO₂eq/h")
+
 
 if __name__ == "__main__":
     run()
