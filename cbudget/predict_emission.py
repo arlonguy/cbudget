@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Tuple
 
 import click
 
@@ -11,7 +12,7 @@ def predict_emission(plan_folder: str,
                      duration_h: float,
                      output_file: Path = Path(__file__).resolve().parent
                                              / "configs"
-                                             / "predicted-emission-rate.json") -> float:
+                                             / "predicted-emission-rate.json") -> Tuple[float, float]:
     """
     Invoke Carbonifer to predict emissions for the given Terraform plan folder,
     using the provided carbon intensity JSON file. Writes the full JSON output
@@ -64,19 +65,16 @@ def predict_emission(plan_folder: str,
             raise KeyError("Total.CarbonEmissions")
         emission_rate = float(raw)
         power_raw = total.get("Power")
-        if power_raw is not None:
-            try:
-                power_value = float(power_raw)
-                click.echo(
-                    f"🔋 Estimated energy usage of provisioned IaC resources with an average utilization rate of 0.5 (50%): {power_value:.10f} Wh/h")
-            except Exception as e:
-                click.echo(f"⚠️  Failed to parse Power from prediction file: {e}", err=True)
+        if power_raw is None:
+            raise KeyError("Total.Power")
+        energy_usage_whph = float(power_raw)
     except Exception as e:
         click.echo(f"❌ Could not parse CarbonEmissions from {output_path}: {e}", err=True)
         sys.exit(3)
 
+    click.echo(f"🔋 Estimated energy usage of provisioned IaC resources with an average utilization rate of 0.5 (50%): {energy_usage_whph:.10f} Wh/h")
     click.echo(f"🏭 Predicted emission rate of provisioned IaC resources: {emission_rate:.3f} gCO₂eq/h during next {duration_h:.0f} h")
-    return emission_rate
+    return energy_usage_whph, emission_rate
 
 
 def calculate_total_emissions(emission_rate_gph: float, duration_h: float) -> float:

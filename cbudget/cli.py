@@ -84,11 +84,9 @@ def run(config: Path):
         sys.exit(1)
 
     prediction_output = base_dir / "predicted-emission-rate.json"
-    # pass duration_h into predict_emission
-    emission_rate = predict_emission(
+    energy_usage_whph, emission_rate = predict_emission(
         plan_folder = str(plan_folder),
         forecast_file = forecast_path,
-        duration_h = duration_h,
         output_file = prediction_output
     )
 
@@ -112,17 +110,18 @@ def run(config: Path):
         duration_h=duration_h,
         policy_file=str(policy_path)
     )
-
-    # 8) Compute optimal deployment window
-    duration_h = int(cfg.get("budget", {}).get("duration", 1))
-    start, end, avg = find_optimal_window(forecast_path, duration_h)
-    click.echo(
-        f"⏳ Optimal {duration_h} h window: "
-        f"{start.isoformat()} → {end.isoformat()} "
-        f"(average lowest grid carbon intensity {avg:.2f} gCO₂eq/kWh)"
-    )
-
     click.echo("✅ All checks passed — budget within limits.")
+
+    # 8) Find the lowest‐intensity window and compute its gCO₂eq/h
+    start, end, avg_intensity = find_optimal_window(
+        base_dir / "forecast.json",
+        int(duration_h)
+    )
+    click.echo(f"⏳ Optimal {duration_h} h window: {start.isoformat()} → {end.isoformat()} (avg {avg_intensity:.2f} gCO₂eq/kWh)")
+
+    # multiply by your energy usage (Wh/h) to get gCO₂eq/h for that window
+    window_rate = avg_intensity * (energy_usage_whph / 1000.0)
+    click.echo(f"🏭 Predicted emission rate for optimal window duration: {window_rate:.3f} gCO₂eq/h")
 
 if __name__ == "__main__":
     run()
