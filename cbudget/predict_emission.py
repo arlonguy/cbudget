@@ -24,7 +24,7 @@ def predict_emission(plan_folder: str,
     output_path   = Path(output_file).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 1) Validate inputs
+    # Validate inputs
     if not plan_path.exists():
         click.echo(f"❌ Plan folder not found: {plan_path}", err=True)
         sys.exit(3)
@@ -32,13 +32,13 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Carbon intensity file not found: {forecast_path}", err=True)
         sys.exit(3)
 
-    # find the carbonifer binary on PATH
+    # Find the carbonifer binary on PATH
     carbonifer_bin = shutil.which("carbonifer")
     if not carbonifer_bin:
          click.echo("❌ Could not find the ‘carbonifer’ binary on PATH", err=True)
          sys.exit(3)
 
-    # 2) Build your cmd with that full path
+    # Build cmd with that full path
     cmd = [
         carbonifer_bin, "plan", str(plan_path),
         "--carbon-intensity-file", str(forecast_path),
@@ -52,7 +52,7 @@ def predict_emission(plan_folder: str,
         click.echo(f"❌ Carbonifer failed:\n{e.stderr}", err=True)
         sys.exit(3)
 
-    # 3) Parse the Carbonifer output JSON
+    # Parse the Carbonifer output JSON
     if not output_path.exists():
         click.echo(f"❌ Prediction file not created: {output_path}", err=True)
         sys.exit(3)

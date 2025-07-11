@@ -19,23 +19,23 @@ BUNDLED_CONFIG = PACKAGE_DIR / "configs" / "infra-budget.yml"
 @click.option(
     "--config", "-c",
     type=click.Path(exists=True, path_type=Path),
-    help="Path to your YAML config file (overrides bundled one)"
+    help="Path to YAML config file (overrides bundled one)"
 )
 def run(config: Path):
     """Run the full carbon-budget check end-to-end."""
-    # 1) Determine which config to use
+    # Determine which config to use
     config   = Path(config) if config else BUNDLED_CONFIG
     base_dir = config.parent
     click.echo(f"🔧 Using config: {config}")
 
-    # 2) Load configuration
+    # Load configuration
     try:
         cfg = yaml.safe_load(config.read_text(encoding="utf-8"))
     except Exception as e:
         click.echo(f"❌ Failed to load config {config}: {e}", err=True)
         sys.exit(1)
 
-    # 3) WattTime credentials
+    # WattTime credentials
     wt   = cfg.get("watttime", {})
     user = wt.get("username")
     pwd  = wt.get("password")
@@ -43,7 +43,7 @@ def run(config: Path):
         click.echo("❌ Missing WattTime credentials in config", err=True)
         sys.exit(1)
 
-    # 4) Obtain WattTime token
+    # Obtain WattTime token
     try:
         resp = requests.get(
             "https://api.watttime.org/login",
@@ -58,12 +58,12 @@ def run(config: Path):
         click.echo(f"❌ Failed to log in to WattTime: {e}", err=True)
         sys.exit(1)
 
-    # 5) Parameters for forecast
+    # Parameters for forecast
     region     = cfg.get("plan", {}).get("region", "CAISO_NORTH")
     hours      = int(cfg.get("plan", {}).get("hours", 72))
     duration_h = int(cfg.get("budget", {}).get("duration", 1))
 
-    # 5a) full 72h forecast → forecast_full.json
+    # a) full 72h forecast → forecast_full.json
     full_fcst = fetch_forecast(
         api_token  = token,
         region     = region,
@@ -72,7 +72,7 @@ def run(config: Path):
         duration_h = hours,      # keep all 72h
     )
 
-    # 5b) budget-window forecast → forecast.json
+    # b) budget-window forecast → forecast.json
     window_fcst = fetch_forecast(
         api_token  = token,
         region     = region,
@@ -81,7 +81,7 @@ def run(config: Path):
         duration_h = duration_h,  # keep only first duration_h
     )
 
-    # 6) Predict emissions using the budget-window forecast
+    # Predict emissions using the budget-window forecast
     raw_folder    = cfg.get("plan", {}).get("folder")
     if not raw_folder:
         click.echo("❌ Missing plan.folder in config", err=True)
@@ -99,10 +99,10 @@ def run(config: Path):
         output_file    = prediction_output
     )
 
-    # 6b) Total predicted emissions over the duration
+    # Total predicted emissions over the duration
     calculate_total_emissions(emission_rate, duration_h)
 
-    # 7) Enforce budget
+    # Enforce budget
     threshold_g = float(cfg.get("budget", {}).get("threshold", 0))
     policy_file = cfg.get("opa", {}).get("policy_file", "")
     policy_path = base_dir / policy_file
@@ -118,14 +118,14 @@ def run(config: Path):
     )
     click.echo("✅ All checks passed — budget within limits.")
 
-    # 8) Find optimal window in the *full* 72h forecast
+    # Find optimal window in the *full* 72h forecast
     start, end, avg_intensity = find_optimal_window(full_fcst, duration_h)
     click.echo(
         f"⏳ Optimal {duration_h}h window: {start.isoformat()} → {end.isoformat()} "
         f"(avg grid carbon intensity {avg_intensity:.2f} gCO₂eq/kWh)"
     )
 
-    # 9) Emission rate during that optimal window
+    # Emission rate during that optimal window
     window_rate = avg_intensity * (energy_whph / 1000.0)
     click.echo(
         f"🏭 Predicted emission rate in optimal window: {window_rate:.3f} gCO₂eq/h"

@@ -5,7 +5,7 @@ from typing import Tuple
 
 def find_optimal_window(forecast_path: Path, duration_h: int) -> Tuple[datetime, datetime, float]:
     """
-    Given a forecast JSON (5 min resolution) and a window length in hours,
+    Given a forecast JSON (72 h) and a window length in hours,
     slide an exact-duration window (duration_h * samples_per_hour) to find
     the lowest average carbon intensity (g/kWh).
     Returns (start, end, average_intensity).

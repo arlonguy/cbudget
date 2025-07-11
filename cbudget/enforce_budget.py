@@ -27,7 +27,7 @@ def enforce_budget(emission_rate_gph: float,
         "threshold_rate_gph": allowed_rate_gph
     }
 
-    # find the opa binary on PATH
+    # Find the opa binary on PATH
     opa_bin = shutil.which("opa")
     if not opa_bin:
         opa_bin = "/usr/local/bin/opa"  # fallback
@@ -35,7 +35,7 @@ def enforce_budget(emission_rate_gph: float,
             click.echo(f"❌ Could not find the ‘opa’ binary", err=True)
             sys.exit(4)
 
-    # build cmd with that full path
+    # Build cmd with that full path
     cmd = [
         opa_bin,
         "eval",
@@ -53,7 +53,7 @@ def enforce_budget(emission_rate_gph: float,
         text=True
     )
 
-    # Any non-zero here really is a syntax/runtime error
+    # Any non-zero here is a syntax/runtime error
     if proc.returncode != 0:
         click.echo(f"❌ OPA eval error (exit {proc.returncode}):\n{proc.stderr}", err=True)
         sys.exit(5)

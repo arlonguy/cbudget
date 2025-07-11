@@ -32,7 +32,7 @@ def save_transformed_json(data: dict,
                           duration_h: int) -> Path:
     """
     Transform raw WattTime data for Carbonifer, but *slice* it down
-    to only the first `duration_h` hours worth of data (5-min intervals).
+    to only the `duration_h` hours worth of data (5-min intervals).
     """
     raw_points = data.get("data", [])
     if len(raw_points) < 2:
@@ -71,11 +71,7 @@ def fetch_forecast(api_token: str,
                    hours: int = 72,
                    filename: str = "forecast.json",
                    duration_h: int = 1) -> Path:
-    """
-    1) Fetch raw forecast via fetch_forecast_data()
-    2) Transform & save via save_transformed_json(), slicing to the
-       first `duration_h` hours worth of 5-min points.
-    """
+
     # 1) fetch raw data
     raw = fetch_forecast_data(api_token, region, hours)
 
